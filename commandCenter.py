@@ -1,22 +1,19 @@
 #! /usr/bin/env python3
-
+"""
 # Author: Michael Zulian
 # Last Update: 02/21/2019
 # Purpose --
-"""
     A simple menu allowing the user to choose from a list of useful commands that I've collected over time in the CLI
 # Details --
     1) An infinite loop maintaining the menu with a tree-like structure of cmds (IE. Menu#1 - Pacman Menu#2 - UPDATE )
     2) Allow the user to add parameters to the cmds that require and also allow the option for a dry-run prior to each run if necessary for the cmd
     3) A simple method to add additional cmds without needing to continualy modify the menu
 # General TODO -
-    * ### Use one CSV file with the headers the keys and the values the rows
-    * Lets just work with the variables as they are (LETS NOT YA IDIOT)
 # Report Known Errors/Bugs -
     1)
 """
 
-### MODULES ###
+### Standard Library imports ###
 import subprocess
 from time import sleep
 from sys import exit
@@ -25,7 +22,7 @@ import re
 import csv
 import os
 import pdb
-from stat import *
+#from stat import *
 import datetime
 
 
@@ -34,8 +31,12 @@ import datetime
 mainMenu_title = "Main Menu"
 mainMenu_exit = "Exit"
 subMenu_exit = 'Back'
-# Get user using the pwd module
+# Get user using the pwd module and checking if user is root
 user = pwd.getpwuid(os.getuid()).pw_name
+if user == "root":
+    print("Please run as unprivileged user...")
+    sleep(3)
+    exit()
 # Use that user's home bin folder
 commandCenter_PWD = "/home/" + user + "/.commandCenterFiles/"
 commandCenter_Files = commandCenter_PWD + "commandCenter_saved_commands.csv"
@@ -81,7 +82,7 @@ def file_or_folder_exist(target, file_or_dir, discover_file):
         print('file_or_folder_exist - Function not used correctly')
         return False
 
-# TODO: Create a function that will read the contents from the target CSV and return that unless specified to write to the CSV and return that CSV
+# RETURNS: headers of CSV
 def csv_column_header_handler(target,header):
     """
     PURPOSE:
@@ -173,6 +174,9 @@ def menuCreator(title, contents, exit_statement):
     # #1 manual option
     print(str(counter) + ')' + ' CONSTANT - Add more commands' )
     counter += 1 # Need to add to counter for each manual entry
+    # #2 manual option
+    print(str(counter) + ')' + ' CONSTANT - Modify Existing Commands' )
+    counter += 1 # Need to add to counter for each manual entry
     print('q)' + ' ' + exit_statement)
 
 # Maintaining the menu and saving user's choice of command and returning it a string
@@ -182,10 +186,11 @@ def menuMaintainer(mainMenu_content):
         * infinite while loop maintaining a while loop so menu is always present
         * execute other functions when user_input specifies so
     """
-    # Main Menu LOOP
+    # Main Menu infinite LOOP
     main_loop = 1
     while main_loop == 1:
         subprocess.run(["clear"])
+        # Creates the menu
         menuCreator(mainMenu_title,mainMenu_content,mainMenu_exit)
         mainMenu_userInput=input('Enter Choice: ')
 
@@ -195,14 +200,19 @@ def menuMaintainer(mainMenu_content):
             sleep(3)
             exit()
 
-        # Check if user input is equal to one of the manual options
+        # #CONSTANT #1: Add more commands. Check if user input is equal to one of the manual options
         if int(mainMenu_userInput) == int(len(mainMenu_content) + 1): # add or int(mainMenu_userInput) == int(len(mainMenu_content) + $WHATEVER_THE MANUAL OPTION) THIS IS PROBABLY GARBAGE WAY
             subprocess.run(["clear"])
 
-            csv_appender_user_input_command=input('Please type out the command as follows ($DESCRIPTION ($COMMAND)): ') # TODO: Regex to check against user input for correct formatting, maybe even possible testing
+            csv_appender_user_input_command=input('Press "q" to return to main menu :: Please type out the command as follows ($DESCRIPTION ($COMMAND)): ') # TODO: Regex to check against user input for correct formatting, maybe even possible testing
+
+            if csv_appender_user_input_command.lower() == "q":
+                continue
 
             while True:
                 csv_appender_user_input_category=input('Which category does this command belong to? (type in "?" to list off available categories): ')
+
+
 
                 if csv_appender_user_input_category == "?":
                     for category in mainMenu_content:
@@ -213,11 +223,25 @@ def menuMaintainer(mainMenu_content):
                     print('That is not a category, try again')
                     continue
 
+                if csv_appender_user_input_category.lower() == "q":
+                    continue
+
                 # Execute csv_appender function with user_inputs
                 csv_appender(commandCenter_Files, csv_appender_user_input_command, csv_appender_user_input_category)
                 break
             continue
 
+        # #CONSTANT #2: Modify the Excel sheet. Check if user input is equal to one of the manual options
+        if int(mainMenu_userInput) == int(len(mainMenu_content) + 2): # add or int(mainMenu_userInput) == int(len(mainMenu_content) + $WHATEVER_THE MANUAL OPTION) THIS IS PROBABLY GARBAGE WAY
+            subprocess.run(["clear"])
+
+            csv_modifier_user_input_command=input('Press "q" to return to main menu :: Press ENTER to continue opening libreoffice')
+
+            if csv_modifier_user_input_command.lower() == "q":
+                continue
+
+            subprocess.run(["libreoffice", "/home/maclu/.commandCenterFiles/commandCenter_saved_commands.csv"])
+            continue
         # Need to minus users input by 1 to match list's index (Starts at 0), in a try block to check if possible to convert str to int
         try:
             choice_asListIndex = int(mainMenu_userInput) - 1
@@ -291,20 +315,31 @@ def menuExecutor(cmdChosen):
         if "$userInput" not in str(command):
             pass
         else:
-            command_userInput = input("What would you like to do with this command: ..." + str(command) + "... ENTER HERE: ")
-            command == command.replace("$userInput", command_userInput)
+            while True:
+                command_userInput = input("What would you like to do with this command (will change out first $userInput): ..." + str(command) + "... ENTER HERE: ")
+                command = command.replace('$userInput', command_userInput)
+                command_userCheck = input("This is the command you're about to run command:\n\n" + command +  "\n\nAre you certain? (Y/N): ")
+                if command_userCheck.lower() == "y":
+                    break
+                else:
+                    continue
         if command.endswith(('.sh', '.py')):
-            subprocess.call("'{}'".format(command), shell=True)
+            subprocess.call(f"{command}", shell=True)
         else:
-            subprocess.run(["{}".format(command)], shell=True)
+            subprocess.run([f"{command}"], shell=True)
+            #subprocess.run(["{}".format(command)], shell=True)
     else:
         cmdChosen = main()
         menuExecutor(cmdChosen)
 
 def main():
+    # Run against file_or_folder_exist function to check for permissions and exsitence
     if file_or_folder_exist(commandCenter_PWD,"dir",0):
+        # Grab a list of the headers of the CSV
         favCommandsCSV_headers = csv_column_header_handler(commandCenter_Files, "csv")
+        # Execute the interactive menu and return the specfic cell value which should be of the cmd
         command_chosen = menuMaintainer(favCommandsCSV_headers)
+        # Execute that command
         menuExecutor(command_chosen)
     else:
         print("Check the following target for permission and/or existence issues: " + commandCenter_PWD)
