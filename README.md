@@ -1,2 +1,1 @@
-# privatePool
-Scripts related to private activities
+# Various Python Scripts
